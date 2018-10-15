@@ -5,22 +5,21 @@ Created on Thu Feb 22 10:40:57 2018
 This file defines a PREDICTIVE MEAN MATCHING function.
 It takes two DataFrames as input (dataset source and dataset target),
 and two lists of variables.
-The first is the variables shared by both datasets (used for the regression).
-The second is the variables used to compute the total income (value to predict):
-    it sumes up all these variables. If only one variable is provided in the list
-    (because total income already in the source dataset), it is ok too.
-The function returns a L by 3 matrix (L<=N+M-1) with the INDEX of each dataset
-(column 1 and column 2) and the weight for this match (column 3).
-One might want then import other variables from the original datasets, such that
-an ids of the observations, other socio-economic characteristics. This can be
-done using the INDEX of the original dataset.
+The first list contain variables shared by both datasets (used to predict values).
+The second list contain variables used to compute variable used for matching (value to predict):
+    it sumes up all these variables. If only one variable is provided in the list, it is ok too.
+The function returns an L by 3 matrix (L<=N+M-1) with the INDEX of observations from each dataset
+(column 1 and column 2) and the weight for the match (column 3).
+One can import other variables from the original datasets, (e.g. ids of the observations, 
+socio-economic characteristics, ...) This can be done using the INDEX of the original dataset.
 
-@author: ARNOUD
+@author: Antoine ARNOUD
 """
+# import modules
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-import time # to compute time needed to run
+import time # used to compute time needed to run
 
 
 def weighted_predictive_matching(df_t, df_s, shared_variables, 
@@ -36,7 +35,7 @@ def weighted_predictive_matching(df_t, df_s, shared_variables,
     >>> df['id1'].iat[2]
     0
     """
-    # copy datasets to work on because df_new = df just create a pointer, not a new dataset
+    # copy datasets to work on because df_new = df just creates a pointer, not a new dataset
     dataset1 = df_t.copy() # target dataset
     dataset2 = df_s.copy() # source dataset (donor)
 
@@ -47,8 +46,8 @@ def weighted_predictive_matching(df_t, df_s, shared_variables,
         print("there are", dataset2[weight_var].isnull().sum(), "observations with missing values in weights in dataset 1")
 
     #replace missing weights with zeros
-    dataset1.weight_var = dataset1.weight_var.fillna(0)
-    dataset2.weight_var = dataset2.weight_var.fillna(0)    
+    dataset1[weight_var] = dataset1[weight_var].fillna(0)
+    dataset2[weight_var] = dataset2[weight_var].fillna(0)    
 
     # create data for regression from source dataset
     #dataset2['ytot'] = dataset2[ytot_variables].sum(axis=1) # NaN is treated as zero when summing, so ok.
@@ -64,12 +63,12 @@ def weighted_predictive_matching(df_t, df_s, shared_variables,
     # Compute predicted values
     ## Dataset source
     dataset2['ypredicted'] = model.predict(X)
-    dataset2 = dataset2.sort_values(by = 'ypredicted', ascending = False) # will use the original index instead of a variable id.reset_index(drop = True) # no need of index because there is alredy id
+    dataset2 = dataset2.sort_values(by = 'ypredicted', ascending = False) 
     ## Dataset target
     X = dataset1[shared_variables]
     X = sm.add_constant(X) ## let's add an intercept (beta_0) to our model
     dataset1['ypredicted'] = model.predict(X)
-    dataset1 = dataset1.sort_values(by = 'ypredicted', ascending = False) # will use the original index of dataset instead of a varaible.reset_index(drop = True)
+    dataset1 = dataset1.sort_values(by = 'ypredicted', ascending = False) 
 
     # Compute transport matrix
     N = dataset1.shape[0]
@@ -102,10 +101,7 @@ def weighted_predictive_matching(df_t, df_s, shared_variables,
     # matching
     start = time.time()
     i, j, k = 0, 0, 0
-    while(i <= N - 1 and j<= M -1): # because i and j start at 0
-    
-         # how to deal with NaN??
-         
+    while(i <= N - 1 and j<= M -1): # because i and j start at 0         
         # match obs i with obs j
         matchmatrix['id1'].iat[k] = data1_index[i]; 
         matchmatrix['id2'].iat[k] = data2_index[j];
@@ -145,4 +141,5 @@ def weighted_predictive_matching(df_t, df_s, shared_variables,
 
 if __name__ == "__main__":
     import doctest
+    print = lambda *args, **kwargs: None  # does not output the print statements in doctest
     doctest.testmod()
